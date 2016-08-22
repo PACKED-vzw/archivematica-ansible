@@ -1,0 +1,20 @@
+---
+      -
+        name: Installing storage service
+        apt: name='archivematica-storage-service' state=present update_cache=yes
+      -
+        # Use Apache & Puppet? => not puppet, but use Apache
+        name: Configuring nginx
+        file: path='/etc/nginx/sites-enabled/default' state=absent
+      -
+        name: Enabling storage service
+        file: src='/etc/nginx/sites-available/storage' dest='/etc/nginx/sites-enabled/storage' state=link
+      -
+        name: Configuring uwsgi
+        file: src='/etc/uwsgi/apps-available/storage.ini' dest='/etc/uwsgi/apps-enabled/storage.ini' state=link
+      -
+        name: Reloading uwsgi
+        service: name=uwsgi state=restarted
+      -
+        name: Reloading nginx
+        service: name=nginx state=reloaded

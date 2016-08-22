@@ -1,0 +1,60 @@
+---
+    -
+      name: Setting debconf options (mysql-root - mcp-server)
+      debconf: name=archivematica-mcp-server question='archivematica-mcp-server/mysql/admin-pass' value='{{mysql_password|quote}}' vtype='password'
+    -
+      name: Setting debconf options (mysql-root - mcp-client)
+      debconf: name=archivematica-mcp-client question='archivematica-mcp-client/mysql/admin-pass' value='{{mysql_password|quote}}' vtype='password'
+    -
+      name: Setting debconf options (mysql-root - dashboard)
+      debconf: name=archivematica-dashboard question='archivematica-dashboard/mysql/admin-pass' value='{{mysql_password|quote}}' vtype='password'
+    -
+      name: Installing Archivematica
+      apt: name={{item}}
+      with_items:
+        - archivematica-mcp-server
+        - archivematica-mcp-client
+        - archivematica-dashboard
+        - elasticsearch
+    -
+      name: Creating database
+      mysql_db: name={{database_name}} state=present login_user={{mysql_user}} login_password={{mysql_password}}
+    -
+      name: Creating database user
+      mysql_user: name={{database_user}} password={{database_password}} state=present priv={{database_name}}.*:ALL login_user={{mysql_user}} login_password={{mysql_password}}
+    -
+      name: Configuring apache
+      file: path=/etc/apache2/sites-enabled/000-default.conf state=absent
+    -
+      name: Installing apache configuration file
+      copy: src=etc/apache2/sites-available/archivematica.conf dest=/etc/apache2/sites-available/archivematica.conf
+    -
+      name: Configuring archivematica
+      template: src=templates/dbsettings.j2 dest=/etc/archivematica/archivematicaCommon/dbsettings
+    -
+      name: Enabling archivematica
+      file: src=/etc/apache2/sites-available/archivematica.conf dest=/etc/apache2/sites-enabled/archivematica.conf state=link
+    -
+      name: Reloading apache
+      service: name=apache2 state=reloaded
+#    -
+#      name: Executing freshclam
+#      shell: freshclam
+    -
+      name: Starting clamav
+      service: name=clamav-daemon state=started
+    -
+      name: Starting elasticsearch
+      service: name=elasticsearch state=started
+    -
+      name: Starting gearman-job-server
+      service: name=gearman-job-server state=restarted
+    -
+      name: Starting Archivematica MCP Server
+      service: name=archivematica-mcp-server state=started
+    -
+      name: Starting Archivematica MCP Client
+      service: name=archivematica-mcp-client state=started
+    -
+      name: Starting fits
+      service: name=fits state=started

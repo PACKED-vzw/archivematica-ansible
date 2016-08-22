@@ -1,0 +1,57 @@
+---
+  -
+    hosts: localhost
+    become: true
+    become_user: root
+    become_method: sudo
+    vars:
+      database_host: localhost
+      database_name: MCP
+      database_user: archivematica
+      mysql_user: root
+      include: vars/sensitive.yml
+    tasks:
+      - include_vars: "{{include}}"
+      -
+        name: Configuring debconf for mysql-server installation (set root password)
+        debconf: name='mysql-server' question='mysql-server/root_password' value='{{mysql_password|quote}}' vtype='password'
+      -
+        name: Configuring debconf for mysql-server installation (confirm root password)
+        debconf: name='mysql-server' question='mysql-server/root_password_again' value='{{mysql_password|quote}}' vtype='password'
+      -
+        name: Installing prerequisites
+        apt: name={{item}} state=latest update_cache=yes
+        with_items:
+          - python-apt
+          - git
+          - aptitude
+          - python-mysqldb
+          - mysql-server
+          - mysql-client
+      -
+        # Note that ansible uses Python < 2.7.9 => does not support SNI,
+        # for get_url so HTTPS doesn't really work. Work-around is to use
+        # shell & curl
+        name: Downloading repository keys (Archivematica)
+        shell: curl https://packages.archivematica.org/1.5.x/key.asc > /tmp/key.asc
+      -
+        name: Downloading repository keys (Elasticsearch)
+        shell: curl http://packages.elasticsearch.org/GPG-KEY-elasticsearch > /tmp/GPG-KEY-elasticsearch
+      -
+        name: Adding repository keys
+        apt_key: file=/tmp/{{item}}
+        with_items:
+          - key.asc
+          - GPG-KEY-elasticsearch
+      -
+        name: Adding repositories
+        apt_repository: repo={{item}}
+        with_items:
+          - 'ppa:archivematica/externals'
+          - 'deb [arch=amd64] http://packages.archivematica.org/1.5.x/ubuntu trusty main'
+          - 'deb http://packages.elasticsearch.org/elasticsearch/1.7/debian stable main'
+      -
+        include: storage_service.yaml
+        # TODO: include supervisord to keep everything running
+      -
+        include: archivematica.yaml
